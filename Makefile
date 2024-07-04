@@ -1,6 +1,14 @@
 FC = mpifort
-FFLAGS = -I/usr/include/hdf5/openmpi/
-LDFLAGS = -L/usr/lib/x86_64-linux-gnu/hdf5/openmpi/ -lhdf5_fortran -lhdf5 -lz
+
+ifdef HDF5_HOME
+	HDF5_FFLAGS = -I$(HDF5_HOME)/include
+	HDF5_LDFLAGS = -Wl,-rpath,$(HDF5_HOME)/lib -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5 -lz
+else
+	HDF5_FFLAGS = -I/usr/include/hdf5/openmpi/
+	HDF5_LDFLAGS = -L/usr/lib/x86_64-linux-gnu/hdf5/openmpi/ -lhdf5_fortran -lhdf5 -lz
+endif
+FFLAGS = $(HDF5_FFLAGS)
+LDFLAGS = $(HDF5_LDFLAGS)
 
 .PHONY: run
 
