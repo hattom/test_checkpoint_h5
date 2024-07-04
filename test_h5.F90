@@ -1,10 +1,12 @@
 program test_h5
-  use iso_fortran_env, only: REAL64
+  use iso_fortran_env, only: REAL64, INT64
   use mpi_f08
   use hdf5
   implicit none
 
   real(kind=REAL64), allocatable, dimension(:) :: s_vals
+  integer(kind=int64), allocatable, dimension(:) :: id_vals
+
   integer :: ip, npart
   ! MPI
   integer :: ierr, me_world, nranks
@@ -34,6 +36,7 @@ program test_h5
   npart = 100000
 
   allocate(s_vals(npart))
+  allocate(id_vals(npart))
 
   call MPI_Init(ierr)
   call Mpi_Comm_rank(MPI_COMM_WORLD, me_world, ierr)
@@ -51,9 +54,10 @@ program test_h5
 
   do ip = 1, npart
     s_vals(ip) = 1.0e-7_real64 * (ip + myrec)
+    id_vals(ip) = ip + myrec
   end do
 
-  print *, me_world, '/', nranks, s_vals(50000), myrec, total_part_num
+  print *, me_world, '/', nranks, id_vals(50000), s_vals(50000), myrec, total_part_num
 
   fname = 'fast.h5'
 
@@ -75,18 +79,21 @@ program test_h5
 
   dimsf(1) = total_part_num
   dimsm(1) = npart
-  nfields = 1
+  nfields = 2
 
   allocate(dset_id(nfields))
   call h5screate_simple_f(1, count, memspace, error)
   call h5screate_simple_f(1, dimsf, filespace, error)
   call h5dcreate_f(file_id, "S_PIC", H5T_NATIVE_DOUBLE, filespace, dset_id(1), error)
+  call h5dcreate_f(file_id, "ID_PIC", H5T_STD_I64LE, filespace, dset_id(2), error)
 
   call h5pcreate_f(H5P_DATASET_XFER_F, wlist_id, error)
   call h5pset_dxpl_mpio_f(wlist_id, H5FD_MPIO_COLLECTIVE_F, error)
   call h5sselect_hyperslab_f(filespace, H5S_SELECT_SET_F, start, count, error, stride, block_)
 
   call h5dwrite_f(dset_id(1), H5T_NATIVE_DOUBLE, s_vals(:), dimsf, &
+                  error, mem_space_id=memspace, file_space_id=filespace, xfer_prp=wlist_id)
+  call h5dwrite_f(dset_id(2), H5T_STD_I64LE, id_vals(:), dimsf, &
                   error, mem_space_id=memspace, file_space_id=filespace, xfer_prp=wlist_id)
   !call h5dwrite_f(dset_id(1), H5T_NATIVE_DOUBLE, s_vals(:), dimsf, &
   !  error, file_space_id=filespace, xfer_prp=wlist_id)
