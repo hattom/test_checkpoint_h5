@@ -1,0 +1,27 @@
+run_build:
+    image: gitlab-registry.mpcdf.mpg.de/mpcdf/module-image
+    stage: build
+    tags:
+        - modules
+    before_script:
+        - module avail
+        - module load intel/2023.1.0.x impi/2021.9 hdf5-mpi
+    script:
+        - make FC=mpiifort
+    artifacts:
+        paths:
+            - test_h5
+
+run_run:
+    image: gitlab-registry.mpcdf.mpg.de/mpcdf/module-image
+    stage: test
+    tags:
+        - modules
+    before_script:
+        - module avail
+        - module load intel/2023.1.0.x impi/2021.9 hdf5-mpi
+    script:
+        - make run2
+    artifacts:
+        paths:
+            - fast.h5
