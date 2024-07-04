@@ -1,9 +1,10 @@
 program test_h5
+  use iso_fortran_env, only: REAL64
   use mpi_f08
   use hdf5
   implicit none
 
-  real, allocatable, dimension(:) :: s_vals
+  real(kind=REAL64), allocatable, dimension(:) :: s_vals
   integer :: ip, npart
   ! MPI
   integer :: ierr, me_world, nranks
@@ -49,7 +50,7 @@ program test_h5
   enddo
 
   do ip = 1, npart
-    s_vals(ip) = 1.0e-7 * (ip + myrec)
+    s_vals(ip) = 1.0e-7_real64 * (ip + myrec)
   end do
 
   print *, me_world, '/', nranks, s_vals(50000), myrec, total_part_num
