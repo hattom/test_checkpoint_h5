@@ -7,13 +7,14 @@ else
 	HDF5_FFLAGS = -I/usr/include/hdf5/openmpi/
 	HDF5_LDFLAGS = -L/usr/lib/x86_64-linux-gnu/hdf5/openmpi/ -lhdf5_fortran -lhdf5 -lz
 endif
-FFLAGS = $(HDF5_FFLAGS)
+
+FFLAGS = $(HDF5_FFLAGS) $(FFLAGS_F90)
 LDFLAGS = $(HDF5_LDFLAGS)
 
 .PHONY: run
 
 test_h5: test_h5.o
-	$(FC) -o $@ $^ $(LDFLAGS)
+	$(FC) -o $@ $^ $(LDFLAGS) $(FFLAGS)
 
 %.o: %.F90
 	$(FC) $(FFLAGS) -c $^
