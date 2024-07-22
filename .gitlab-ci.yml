@@ -1,38 +1,38 @@
 stages: [compile, run, test]
 
-run_compile:
-    image: gitlab-registry.mpcdf.mpg.de/mpcdf/module-image
+run_compile_iimpi2024:
+    image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2024_0-impi_2021_11:2024
     stage: compile
     tags:
-        - modules
+        - cloud
     before_script:
-        - module load intel/2023.1.0.x impi/2021.9 hdf5-mpi
+        - module load intel/2024.0 impi/2021.11 hdf5-mpi
     script:
         - make FC=mpiifort
     artifacts:
         paths:
             - test_h5
 
-run_run:
-    image: gitlab-registry.mpcdf.mpg.de/mpcdf/module-image
+run_run_iimpi2024:
+    image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2024_0-impi_2021_11:2024
     stage: run
     tags:
-        - modules
+        - cloud
     before_script:
-        - module load intel/2023.1.0.x impi/2021.9 hdf5-mpi
+        - module load intel/2024.0 impi/2021.11 hdf5-mpi
     script:
         - make run2
     artifacts:
         paths:
             - fast.h5
 
-run_test:
-    image: gitlab-registry.mpcdf.mpg.de/mpcdf/module-image
+run_test_iimpi2024:
+    image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2024_0-impi_2021_11:2024
     stage: test
     tags:
-        - modules
+        - cloud
     before_script:
-        - module load intel/2023.1.0.x impi/2021.9 hdf5-mpi
+        - module load intel/2024.0 impi/2021.11 hdf5-mpi
     script:
         - h5ls -r fast.h5
         - h5dump -d /ID_PIC fast.h5
