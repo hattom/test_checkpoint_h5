@@ -9,7 +9,7 @@ module test_h5_mod
 
   subroutine test_write
     real(kind=REAL64), allocatable, dimension(:) :: s_vals
-    integer(kind=int64), allocatable, dimension(:) :: id_vals
+    integer(kind=INT64), allocatable, dimension(:) :: id_vals
     integer, allocatable, dimension(:) :: rank_vals
 
     integer :: ip, npart
@@ -27,15 +27,14 @@ module test_h5_mod
     integer(HSIZE_T), dimension(1) :: start_, count_, stride_, block_, dimsf
     integer(HSIZE_T), dimension(1) :: start_p, count_p, stride_p, block_p, dimsf_p
     integer(HSIZE_T), dimension(1) :: start_s, count_s, stride_s, block_s, dimsf_s
-    integer :: total_part_num
     integer, dimension(:), allocatable :: part_per_proc
-    integer :: myrec
+    integer(kind=INT64) :: total_part_num, myrec
     real(kind=REAL64), dimension(:), allocatable :: serial_arr
 
     call Mpi_Comm_rank(MPI_COMM_WORLD, me_world, ierr)
     call Mpi_Comm_size(MPI_COMM_WORLD, nranks, ierr)
 
-    npart = 100 + me_world - nranks/2
+    npart = 1000000000 + me_world - nranks/2
     print *, me_world, "npart:", npart
 
     allocate(s_vals(npart))
@@ -44,8 +43,8 @@ module test_h5_mod
 
     allocate(part_per_proc(nranks))
     call MPI_Allgather(npart, 1, MPI_INTEGER, part_per_proc, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
-    total_part_num = sum(part_per_proc)
-    myrec = sum(part_per_proc(1:me_world))
+    total_part_num = sum(int(part_per_proc, kind=INT64))
+    myrec = sum(int(part_per_proc(1:me_world), kind=INT64))
 
     do ip = 1, npart
       s_vals(ip) = 1.0e-7_real64 * (ip + myrec)
@@ -142,7 +141,7 @@ module test_h5_mod
 
   subroutine test_read_p
     real(kind=REAL64), allocatable, dimension(:) :: s_vals
-    integer(kind=int64), allocatable, dimension(:) :: id_vals
+    integer(kind=INT64), allocatable, dimension(:) :: id_vals
     integer, allocatable, dimension(:) :: rank_vals
 
     integer :: npart
@@ -163,9 +162,8 @@ module test_h5_mod
     integer(HSIZE_T), dimension(1) :: start_, count_, stride_, block_, dimsf
     integer(HSIZE_T), dimension(1) :: start_p, count_p, stride_p, block_p, dimsf_p
     integer(HSIZE_T), dimension(1) :: start_s, count_s, stride_s, block_s, dimsf_s
-    integer :: total_part_num
+    integer(kind=INT64) :: total_part_num, myrec
     integer, dimension(:), allocatable :: part_per_proc
-    integer :: myrec
     real(kind=REAL64) :: mumax
 
 
@@ -233,8 +231,8 @@ module test_h5_mod
 
     allocate(part_per_proc(nranks))
     call MPI_Allgather(npart, 1, MPI_INTEGER, part_per_proc, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
-    total_part_num = sum(part_per_proc)
-    myrec = sum(part_per_proc(1:me_world))
+    total_part_num = sum(int(part_per_proc, kind=INT64))
+    myrec = sum(int(part_per_proc(1:me_world), kind=INT64))
 
     count_(1) = npart
     start_(1) = myrec
@@ -243,7 +241,7 @@ module test_h5_mod
     dimsf(1) = total_part_num
 
     s_vals(:) = -1.0_real64
-    id_vals(:) = -1_int64
+    id_vals(:) = -1_INT64
     rank_vals(:) = -3
 
     !!! Large arrays, each rank reads a unique subset (based on npart from above)
@@ -283,7 +281,6 @@ module test_h5_mod
 end module test_h5_mod
 
 program test_h5
-  use iso_fortran_env, only: REAL64, INT64
   use mpi_f08
   use hdf5
   use test_h5_mod
