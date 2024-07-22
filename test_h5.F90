@@ -1,15 +1,23 @@
+#ifdef NO_MPI_F08
+#define USE_MPI use mpi
+#else
+#define USE_MPI use mpi_f08
+#endif
+
 module test_h5_mod
   use iso_fortran_env, only: REAL64, INT64
-  use mpi_f08
+  USE_MPI
   use hdf5
   implicit none
   character(len=*), parameter :: fname = 'fast.h5'
+  character(len=80) :: fname_f90
+  character(len=*), parameter :: rfformstring = '(a,i4.4)'
 
   contains
 
   subroutine test_write
     real(kind=REAL64), allocatable, dimension(:) :: s_vals
-    integer(kind=int64), allocatable, dimension(:) :: id_vals
+    integer(kind=INT64), allocatable, dimension(:) :: id_vals
     integer, allocatable, dimension(:) :: rank_vals
 
     integer :: ip, npart
@@ -27,15 +35,14 @@ module test_h5_mod
     integer(HSIZE_T), dimension(1) :: start_, count_, stride_, block_, dimsf
     integer(HSIZE_T), dimension(1) :: start_p, count_p, stride_p, block_p, dimsf_p
     integer(HSIZE_T), dimension(1) :: start_s, count_s, stride_s, block_s, dimsf_s
-    integer :: total_part_num
     integer, dimension(:), allocatable :: part_per_proc
-    integer :: myrec
+    integer(kind=INT64) :: total_part_num, myrec
     real(kind=REAL64), dimension(:), allocatable :: serial_arr
 
     call Mpi_Comm_rank(MPI_COMM_WORLD, me_world, ierr)
     call Mpi_Comm_size(MPI_COMM_WORLD, nranks, ierr)
 
-    npart = 100 + me_world - nranks/2
+    npart = get_npart(me_world, nranks)
     print *, me_world, "npart:", npart
 
     allocate(s_vals(npart))
@@ -44,8 +51,8 @@ module test_h5_mod
 
     allocate(part_per_proc(nranks))
     call MPI_Allgather(npart, 1, MPI_INTEGER, part_per_proc, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
-    total_part_num = sum(part_per_proc)
-    myrec = sum(part_per_proc(1:me_world))
+    total_part_num = sum(int(part_per_proc, kind=INT64))
+    myrec = sum(int(part_per_proc(1:me_world), kind=INT64))
 
     do ip = 1, npart
       s_vals(ip) = 1.0e-7_real64 * (ip + myrec)
@@ -57,7 +64,12 @@ module test_h5_mod
 
     ! Setup file access property list for MPI-IO access
     call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+
+#ifdef NO_MPI_F08
+    call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
+#else
     call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD%MPI_VAL, MPI_INFO_NULL%MPI_VAL, error)
+#endif
 
     ! Create the file collectively
     call h5fcreate_f(fname, H5F_ACC_TRUNC_F, file_id, error, access_prp=plist_id)
@@ -142,7 +154,7 @@ module test_h5_mod
 
   subroutine test_read_p
     real(kind=REAL64), allocatable, dimension(:) :: s_vals
-    integer(kind=int64), allocatable, dimension(:) :: id_vals
+    integer(kind=INT64), allocatable, dimension(:) :: id_vals
     integer, allocatable, dimension(:) :: rank_vals
 
     integer :: npart
@@ -163,9 +175,8 @@ module test_h5_mod
     integer(HSIZE_T), dimension(1) :: start_, count_, stride_, block_, dimsf
     integer(HSIZE_T), dimension(1) :: start_p, count_p, stride_p, block_p, dimsf_p
     integer(HSIZE_T), dimension(1) :: start_s, count_s, stride_s, block_s, dimsf_s
-    integer :: total_part_num
+    integer(kind=INT64) :: total_part_num, myrec
     integer, dimension(:), allocatable :: part_per_proc
-    integer :: myrec
     real(kind=REAL64) :: mumax
 
 
@@ -192,7 +203,11 @@ module test_h5_mod
 
     ! Setup file access property list for MPI-IO access
     call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+#ifdef NO_MPI_F08
+    call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
+#else
     call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD%MPI_VAL, MPI_INFO_NULL%MPI_VAL, error)
+#endif
     ! Create the file collectively
     call h5fopen_f(fname, H5F_ACC_RDONLY_F, file_id, error, access_prp=plist_id)
 
@@ -233,8 +248,8 @@ module test_h5_mod
 
     allocate(part_per_proc(nranks))
     call MPI_Allgather(npart, 1, MPI_INTEGER, part_per_proc, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
-    total_part_num = sum(part_per_proc)
-    myrec = sum(part_per_proc(1:me_world))
+    total_part_num = sum(int(part_per_proc, kind=INT64))
+    myrec = sum(int(part_per_proc(1:me_world), kind=INT64))
 
     count_(1) = npart
     start_(1) = myrec
@@ -243,7 +258,7 @@ module test_h5_mod
     dimsf(1) = total_part_num
 
     s_vals(:) = -1.0_real64
-    id_vals(:) = -1_int64
+    id_vals(:) = -1_INT64
     rank_vals(:) = -3
 
     !!! Large arrays, each rank reads a unique subset (based on npart from above)
@@ -280,22 +295,122 @@ module test_h5_mod
 
     print *, "XXY", count(rank_vals /= me_world)
   end subroutine test_read_p
+
+  subroutine test_write_f90
+#ifdef DO_F90
+    real(kind=REAL64), allocatable, dimension(:) :: s_vals
+    integer(kind=INT64), allocatable, dimension(:) :: id_vals
+    integer, allocatable, dimension(:) :: rank_vals
+
+    integer :: npart
+    integer :: ierr, me_world, nranks, lu_dat, ip
+    integer(kind=INT64) :: total_part_num, myrec
+    integer, dimension(:), allocatable :: part_per_proc
+    real(kind=REAL64) :: mumax
+
+    call Mpi_Comm_rank(MPI_COMM_WORLD, me_world, ierr)
+    call Mpi_Comm_size(MPI_COMM_WORLD, nranks, ierr)
+
+    write(fname_f90, rfformstring) "fast", me_world
+
+    npart = get_npart(me_world, nranks)
+
+    allocate(part_per_proc(nranks))
+    call MPI_Allgather(npart, 1, MPI_INTEGER, part_per_proc, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
+    myrec = sum(int(part_per_proc(1:me_world), kind=INT64))
+
+    allocate(s_vals(npart))
+    allocate(id_vals(npart))
+    allocate(rank_vals(npart))
+
+    do ip = 1, npart
+      s_vals(ip) = 1.0e-7_real64 * (ip + myrec)
+      id_vals(ip) = ip + myrec
+    end do
+    rank_vals(:) = me_world
+
+    open(lu_dat, FILE=fname_f90, FORM='unformatted')
+    write(lu_dat) npart
+    write(lu_dat) mumax
+
+    write(lu_dat) s_vals(:)
+    write(lu_dat) id_vals(:)
+    write(lu_dat) rank_vals(:)
+
+    close(lu_dat)
+#endif
+  end subroutine test_write_f90
+
+  subroutine test_read_f90
+#ifdef DO_F90
+    real(kind=REAL64), allocatable, dimension(:) :: s_vals
+    integer(kind=INT64), allocatable, dimension(:) :: id_vals
+    integer, allocatable, dimension(:) :: rank_vals
+
+    integer :: npart
+    integer :: ierr, me_world, nranks, lu_dat
+    real(kind=REAL64) :: mumax
+
+    call Mpi_Comm_rank(MPI_COMM_WORLD, me_world, ierr)
+    call Mpi_Comm_size(MPI_COMM_WORLD, nranks, ierr)
+
+    open(lu_dat, FILE=fname_f90, FORM='unformatted')
+    read(lu_dat) npart
+    read(lu_dat) mumax
+
+    allocate(s_vals(npart))
+    allocate(id_vals(npart))
+    allocate(rank_vals(npart))
+
+    read(lu_dat) s_vals(:)
+    read(lu_dat) id_vals(:)
+    read(lu_dat) rank_vals(:)
+
+    close(lu_dat)
+    print *, "XXY-f90", count(rank_vals /= me_world)
+#endif
+  end subroutine test_read_f90
+
+  pure integer function get_npart(me_world, nranks) result(npart)
+    integer, intent(in) :: me_world, nranks
+    npart = 1000000 + me_world - nranks/2
+  end function get_npart
 end module test_h5_mod
 
 program test_h5
-  use iso_fortran_env, only: REAL64, INT64
-  use mpi_f08
+  use iso_fortran_env, only: REAL64
+  USE_MPI
   use hdf5
   use test_h5_mod
   implicit none
   integer :: ierr, error
+  real(kind=REAL64) :: t2, t1
 
   call MPI_Init(ierr)
   ! Initialize fortran predefined datatypes
   call h5open_f(error)
 
+  t1 = MPI_Wtime()
   call test_write()
+  t2 = MPI_Wtime()
+  print *, 'write hdf5', t2 - t1
+
+  t1 = MPI_Wtime()
   call test_read_p()
+  t2 = MPI_Wtime()
+  print *, 'read hdf5', t2 - t1
+
+#ifdef DO_F90
+  t1 = MPI_Wtime()
+  call test_write_f90()
+  t2 = MPI_Wtime()
+  print *, 'write f90', t2 - t1
+
+  t1 = MPI_Wtime()
+  call test_read_f90()
+  t2 = MPI_Wtime()
+  print *, 'read f90', t2 - t1
+#endif DO_F90
 
   ! close fortran interface
   call h5close_f(error)
