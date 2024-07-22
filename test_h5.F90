@@ -373,7 +373,7 @@ module test_h5_mod
 
   pure integer function get_npart(me_world, nranks) result(npart)
     integer, intent(in) :: me_world, nranks
-    npart = 100000000 + me_world - nranks/2
+    npart = 1000000 + me_world - nranks/2
   end function get_npart
 end module test_h5_mod
 
