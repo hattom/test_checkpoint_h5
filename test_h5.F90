@@ -1,6 +1,12 @@
+#ifdef NO_MPI_F08
+#define USE_MPI use mpi
+#else
+#define USE_MPI use mpi_f08
+#endif
+
 module test_h5_mod
   use iso_fortran_env, only: REAL64, INT64
-  use mpi_f08
+  USE_MPI
   use hdf5
   implicit none
   character(len=*), parameter :: fname = 'fast.h5'
@@ -56,7 +62,12 @@ module test_h5_mod
 
     ! Setup file access property list for MPI-IO access
     call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+
+#ifdef NO_MPI_F08
+    call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
+#else
     call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD%MPI_VAL, MPI_INFO_NULL%MPI_VAL, error)
+#endif
 
     ! Create the file collectively
     call h5fcreate_f(fname, H5F_ACC_TRUNC_F, file_id, error, access_prp=plist_id)
@@ -190,7 +201,11 @@ module test_h5_mod
 
     ! Setup file access property list for MPI-IO access
     call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+#ifdef NO_MPI_F08
+    call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
+#else
     call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD%MPI_VAL, MPI_INFO_NULL%MPI_VAL, error)
+#endif
     ! Create the file collectively
     call h5fopen_f(fname, H5F_ACC_RDONLY_F, file_id, error, access_prp=plist_id)
 
@@ -281,7 +296,7 @@ module test_h5_mod
 end module test_h5_mod
 
 program test_h5
-  use mpi_f08
+  USE_MPI
   use hdf5
   use test_h5_mod
   implicit none
