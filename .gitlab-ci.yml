@@ -37,3 +37,13 @@ run_test_iimpi2024:
         - h5ls -r fast.h5
         - h5dump -d /ID_PIC fast.h5
         - h5dump -d /S_PIC fast.h5
+
+run_testpy_iimpi2024:
+    image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2024_0-impi_2021_11:2024
+    stage: test
+    tags:
+        - cloud
+    before_script:
+        - module load anaconda/3/2023.03
+    script:
+        - python test_id.py
