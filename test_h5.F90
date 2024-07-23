@@ -76,7 +76,7 @@ module test_h5_mod
 
     start_s(1) = merge(1, 0, me_world>0)
     stride_s(1) = 1
-    block_s(1) = merge(1, 0, me_world==0)
+    block_s(1) = 1
     dimsf_s(1) = 1
     count_s(1) = merge(1, 0, me_world==0)
     allocate(serial_arr(count_s(1)))
