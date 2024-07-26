@@ -13,6 +13,15 @@ module test_h5_mod
   character(len=80) :: fname_f90
   character(len=*), parameter :: rfformstring = '(a,i4.4)'
 
+  ! From Beliavsky, https://fortran-lang.discourse.group/t/speed-of-atoi-and-atof-vs-internal-read/3375
+  interface
+    function atoi(in) bind(c)
+      use, intrinsic    :: iso_c_binding
+      integer(c_int)    :: atoi
+      character(c_char) :: in(*)
+    end function
+  end interface
+
   contains
 
   subroutine test_write
@@ -102,7 +111,12 @@ module test_h5_mod
     call h5screate_simple_f(1, count_p, memspace_p, error)
     call h5screate_simple_f(1, dimsf_p, filespace_p, error)
     call h5pcreate_f(H5P_DATASET_XFER_F, wlist_id, error)
+#ifdef H5_INDEPENDENT
+    if (me_world == 0) print *, "independent IO"
+    call h5pset_dxpl_mpio_f(wlist_id, H5FD_MPIO_INDEPENDENT_F, error)
+#else
     call h5pset_dxpl_mpio_f(wlist_id, H5FD_MPIO_COLLECTIVE_F, error)
+#endif
     call h5dcreate_f(file_id, "npart", H5T_NATIVE_INTEGER, filespace_p, dset_id(nfields), error)
     call h5sselect_hyperslab_f(filespace_p, H5S_SELECT_SET_F, start_p, count_p, error, stride_p, block_p)
     call h5dwrite_f(dset_id(nfields), H5T_NATIVE_INTEGER, (/ npart /), dimsf_p, &
@@ -371,9 +385,22 @@ module test_h5_mod
 #endif
   end subroutine test_read_f90
 
-  pure integer function get_npart(me_world, nranks) result(npart)
+  integer function get_npart(me_world, nranks) result(npart)
     integer, intent(in) :: me_world, nranks
-    npart = 1000000 + me_world - nranks/2
+    integer :: env_status, env_length
+    integer :: npart_base = 1000000
+
+    !! allow npart to be overridden by environment variable
+    call get_environment_variable("NPART", length=env_length, status=env_status)
+    if (env_status == 0) then
+      block
+        character(len=env_length) :: npart_str
+        call get_environment_variable("NPART", value=npart_str, status=env_status)
+        npart_base = atoi(npart_str)
+      end block
+    end if
+
+    npart = npart_base + me_world - nranks/2
   end function get_npart
 end module test_h5_mod
 
